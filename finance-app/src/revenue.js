@@ -1,16 +1,18 @@
 // revenue.js
 
 import { normalizeCurrency } from './currency.js';
+import { toMinorUnits } from './money.js';
 
 /**
  * Посчитать выручку из одного источника транзакций (источник №1).
+ * Суммирование ведётся в целых минорных единицах каждой валюты.
  * @param {Array} transactions
  * @param {Object} options
  * @param {boolean} options.groupByCurrency — если true, вернуть разбивку по валютам
- * @returns {{ totals: Object, errors: Array }}
+ * @returns {{ totals: Object, errors: Array }} — totals: { usd: 111000 } (минорные единицы)
  */
 export function sumTransactions(transactions, { groupByCurrency = false } = {}) {
-  const totals = {}; // { usd: 1110, eur: 200 }
+  const totals = {}; // { usd: 111000 } — минорные единицы
   const errors = [];
 
   if (!Array.isArray(transactions)) {
@@ -37,7 +39,8 @@ export function sumTransactions(transactions, { groupByCurrency = false } = {}) 
     }
 
     const code = normalizeCurrency(tx.currency);
-    totals[code] = (totals[code] || 0) + tx.amount;
+    const minor = toMinorUnits(tx.amount, code);
+    totals[code] = (totals[code] || 0) + minor;
   });
 
   return { totals, errors };
@@ -45,8 +48,9 @@ export function sumTransactions(transactions, { groupByCurrency = false } = {}) 
 
 /**
  * Посчитать выручку из источника №2 (массив строк "300 USD").
+ * Суммирование ведётся в целых минорных единицах каждой валюты.
  * @param {Array<string>} items
- * @returns {{ totals: Object, errors: Array }}
+ * @returns {{ totals: Object, errors: Array }} — totals: { usd: 111000 } (минорные единицы)
  */
 export function sumStrings(items) {
   const totals = {};
@@ -78,22 +82,23 @@ export function sumStrings(items) {
       return;
     }
 
-    totals[code] = (totals[code] || 0) + amount;
+    const minor = toMinorUnits(amount, code);
+    totals[code] = (totals[code] || 0) + minor;
   });
 
   return { totals, errors };
 }
 
 /**
- * Объединить разбивки по валютам из нескольких источников.
- * @param  {...Object} totalsList — объекты вида { usd: 1110, eur: 200 }
+ * Объединить разбивки по валютам из нескольких источников (в минорных единицах).
+ * @param  {...Object} totalsList — объекты вида { usd: 111000 }
  * @returns {Object}
  */
 export function mergeTotals(...totalsList) {
   const merged = {};
   for (const totals of totalsList) {
-    for (const [code, amount] of Object.entries(totals)) {
-      merged[code] = (merged[code] || 0) + amount;
+    for (const [code, minor] of Object.entries(totals)) {
+      merged[code] = (merged[code] || 0) + minor;
     }
   }
   return merged;
